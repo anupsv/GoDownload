@@ -178,3 +178,76 @@ func TestMergeSegments_ErrorCreatingMergedFile(t *testing.T) {
 		t.Errorf("Expected an error due to failure in creating merged file, but got none")
 	}
 }
+
+func TestMergeSegments_MismatchedSegmentData(t *testing.T) {
+	destPath := "/tmp/mergedFileMismatched"
+	segmentCount := 3
+
+	// Create segment files, but the second segment has unexpected data
+	ioutil.WriteFile(fmt.Sprintf("%s.part1", destPath), []byte("segment1 data"), 0644)
+	ioutil.WriteFile(fmt.Sprintf("%s.part2", destPath), []byte("unexpected data"), 0644)
+	ioutil.WriteFile(fmt.Sprintf("%s.part3", destPath), []byte("segment3 data"), 0644)
+
+	err := mergeSegments(destPath, segmentCount)
+	if err != nil {
+		t.Errorf("Did not expect an error, but got: %v", err)
+	}
+
+	mergedData, _ := ioutil.ReadFile(destPath)
+	expectedData := "segment1 dataunexpected datasegment3 data"
+	if string(mergedData) != expectedData {
+		t.Errorf("Segment merging failed. Expected %s but got %s", expectedData, string(mergedData))
+	}
+
+	// Cleanup
+	for i := 1; i <= segmentCount; i++ {
+		os.Remove(fmt.Sprintf("%s.part%d", destPath, i))
+	}
+	os.Remove(destPath)
+}
+
+func TestMergeSegments_LargeNumberOfSegments(t *testing.T) {
+	destPath := "/tmp/mergedFileLarge"
+	segmentCount := 1000
+
+	// Create a large number of segment files
+	for i := 1; i <= segmentCount; i++ {
+		ioutil.WriteFile(fmt.Sprintf("%s.part%d", destPath, i), []byte(fmt.Sprintf("segment%d data", i)), 0644)
+		defer os.Remove(fmt.Sprintf("%s.part%d", destPath, i))
+	}
+
+	err := mergeSegments(destPath, segmentCount)
+	if err != nil {
+		t.Errorf("Expected no error, but got: %v", err)
+	}
+
+	// Cleanup the merged file
+	defer os.Remove(destPath)
+}
+
+func TestMergeSegments_ZeroByteSegments(t *testing.T) {
+	destPath := "/tmp/mergedFileZeroByte"
+	segmentCount := 3
+
+	// Create segment files, but the second segment is empty
+	ioutil.WriteFile(fmt.Sprintf("%s.part1", destPath), []byte("segment1 data"), 0644)
+	ioutil.WriteFile(fmt.Sprintf("%s.part2", destPath), []byte(""), 0644)
+	ioutil.WriteFile(fmt.Sprintf("%s.part3", destPath), []byte("segment3 data"), 0644)
+
+	err := mergeSegments(destPath, segmentCount)
+	if err != nil {
+		t.Errorf("Did not expect an error, but got: %v", err)
+	}
+
+	mergedData, _ := ioutil.ReadFile(destPath)
+	expectedData := "segment1 datasegment3 data"
+	if string(mergedData) != expectedData {
+		t.Errorf("Segment merging failed. Expected %s but got %s", expectedData, string(mergedData))
+	}
+
+	// Cleanup
+	for i := 1; i <= segmentCount; i++ {
+		os.Remove(fmt.Sprintf("%s.part%d", destPath, i))
+	}
+	os.Remove(destPath)
+}

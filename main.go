@@ -14,7 +14,7 @@ func main() {
 	helpFlag := flag.Bool("help", false, "Display help information")
 	threads := flag.Int("threads", runtime.NumCPU(), "Number of threads for downloading")
 	dir := flag.String("dir", "./", "Download directory")
-	segments := flag.Int("segments", 0, "Number of segments for downloading (max 6). Cannot be used with -threads.")
+	segments := flag.Int("segments", 1, "Number of segments for downloading (max 6). Cannot be used with -threads.")
 
 	// Define a custom flag for multiple URLs
 	var urls multiFlag
@@ -33,6 +33,9 @@ func main() {
 			fmt.Println("Error: Maximum of 6 segments allowed.")
 			return
 		}
+	} else {
+		fmt.Println("segments was given a weird value.")
+		return
 	}
 
 	factory := &downloader.RealDownloaderFactory{}
