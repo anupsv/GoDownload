@@ -61,7 +61,7 @@ func TestRunDownloader_MoreThreadsThanURLs(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockDownloader := downloader.NewMockDownloaderInterface(ctrl)
-	mockDownloader.EXPECT().DownloadFiles(gomock.Any(), "./", 5).Times(1)
+	mockDownloader.EXPECT().DownloadFiles(gomock.Any(), "./", 1).Times(1)
 
 	mockFactory := downloader.NewMockDownloaderFactory(ctrl)
 	mockFactory.EXPECT().NewDownloader(gomock.Any()).Return(mockDownloader).Times(1)
