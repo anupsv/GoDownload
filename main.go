@@ -2,6 +2,7 @@ package main
 
 import (
 	"GoDownload/downloader"
+	"GoDownload/helpers"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -23,6 +24,12 @@ func main() {
 	// Parse flags
 	flag.Parse()
 
+	err := helpers.ValidateDirectory(*dir)
+	if err != nil {
+		fmt.Println("Error:", err)
+		return
+	}
+
 	// Validate segments and threads
 	if *segments > 0 {
 		if *threads != runtime.NumCPU() {
@@ -39,9 +46,9 @@ func main() {
 	}
 
 	factory := &downloader.RealDownloaderFactory{}
-	err := RunDownloader(*helpFlag, *threads, *dir, urls, factory)
-	if err != nil {
-		fmt.Println(err)
+	dlErr := RunDownloader(*helpFlag, *threads, *dir, urls, factory)
+	if dlErr != nil {
+		fmt.Println(dlErr)
 	}
 }
 

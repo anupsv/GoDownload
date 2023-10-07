@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"GoDownload/helpers"
 	"fmt"
 )
 
@@ -23,7 +24,7 @@ type StaticURLProvider struct {
 func (s *StaticURLProvider) GetURLs() []string {
 	var validURLs []string
 	for _, u := range s.URLs {
-		if isValidURL(u) {
+		if helpers.IsValidURL(u) {
 			validURLs = append(validURLs, u)
 		} else {
 			fmt.Printf("Warning: Skipping invalid URL: %s\n", u)

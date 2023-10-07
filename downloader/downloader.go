@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"GoDownload/helpers"
 	"context"
 	"errors"
 	"fmt"
@@ -127,7 +128,7 @@ func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			destPath := path.Join(dir, getFileNameFromURL(url))
+			destPath := path.Join(dir, helpers.GetFileNameFromURL(url))
 			if _, pathErr := os.Stat(destPath); os.IsNotExist(pathErr) {
 				downloadErr := d.DownloadFile(url, destPath, bar)
 				if downloadErr != nil {
