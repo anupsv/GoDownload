@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"net/http"
 )
 
@@ -8,6 +9,7 @@ import (
 type HttpClient interface {
 	Get(url string) (*http.Response, error)
 	Head(url string) (*http.Response, error)
+	Do(ctx context.Context, req *http.Request) (*http.Response, error)
 }
 
 // RealHttpClient is a real implementation that uses http.Client.
@@ -19,4 +21,10 @@ func (c *RealHttpClient) Get(url string) (*http.Response, error) {
 
 func (c *RealHttpClient) Head(url string) (*http.Response, error) {
 	return http.Head(url)
+}
+
+func (c *RealHttpClient) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
+	client := &http.Client{}
+	req = req.WithContext(ctx)
+	return client.Do(req)
 }

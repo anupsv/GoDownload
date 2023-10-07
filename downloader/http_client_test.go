@@ -1,6 +1,8 @@
 package downloader
 
 import (
+	"context"
+	"github.com/golang/mock/gomock"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -51,5 +53,29 @@ func TestRealHttpClient_Head(t *testing.T) {
 	// Check the response status code
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected status code 200, got: %d", resp.StatusCode)
+	}
+}
+
+func TestDo(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockHttpClient := NewMockHttpClient(ctrl)
+	req, _ := http.NewRequest("GET", "http://example.com", nil)
+
+	// Setting up the mock expectation
+	mockHttpClient.EXPECT().Do(context.Background(), req).Return(&http.Response{
+		StatusCode: http.StatusOK,
+	}, nil)
+
+	// Call the Do method
+	resp, err := mockHttpClient.Do(context.Background(), req)
+
+	if err != nil {
+		t.Errorf("Expected no error, but got: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("Expected status code %d, but got: %d", http.StatusOK, resp.StatusCode)
 	}
 }

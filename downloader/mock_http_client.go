@@ -5,6 +5,7 @@
 package downloader
 
 import (
+	context "context"
 	http "net/http"
 	reflect "reflect"
 
@@ -32,6 +33,21 @@ func NewMockHttpClient(ctrl *gomock.Controller) *MockHttpClient {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockHttpClient) EXPECT() *MockHttpClientMockRecorder {
 	return m.recorder
+}
+
+// Do mocks base method.
+func (m *MockHttpClient) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Do", ctx, req)
+	ret0, _ := ret[0].(*http.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Do indicates an expected call of Do.
+func (mr *MockHttpClientMockRecorder) Do(ctx, req interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Do", reflect.TypeOf((*MockHttpClient)(nil).Do), ctx, req)
 }
 
 // Get mocks base method.
