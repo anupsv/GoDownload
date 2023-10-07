@@ -7,7 +7,7 @@ import (
 
 // URLProvider is an interface to provide URLs.
 type URLProvider interface {
-	GetURLs() []string
+	GetURLs() ([]string, error)
 }
 
 // FileURLProvider provides URLs from a file.
@@ -15,20 +15,18 @@ type FileURLProvider struct {
 	Filename string
 }
 
-// TODO: Implement GetURLs for FileURLProvider
-
 type StaticURLProvider struct {
 	URLs []string
 }
 
-func (s *StaticURLProvider) GetURLs() []string {
+func (s *StaticURLProvider) GetURLs() ([]string, error) {
 	var validURLs []string
 	for _, u := range s.URLs {
 		if helpers.IsValidURL(u) {
 			validURLs = append(validURLs, u)
 		} else {
-			fmt.Printf("Warning: Skipping invalid URL: %s\n", u)
+			return nil, fmt.Errorf("warning: Skipping invalid URL: %s", u)
 		}
 	}
-	return validURLs
+	return validURLs, nil
 }

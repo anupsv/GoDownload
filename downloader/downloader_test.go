@@ -2,20 +2,37 @@ package downloader
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"github.com/cheggaaa/pb/v3"
+	"go.uber.org/zap"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/golang/mock/gomock"
 )
 
+var setupOnce sync.Once
+var ctx context.Context
+var sugar *zap.SugaredLogger
+
+func setup() {
+	// This code will be run once, regardless of how many tests call the setup function.
+	logger, _ := zap.NewDevelopment()
+	defer logger.Sync()
+	sugar = logger.Sugar()
+	ctx = context.WithValue(context.Background(), "sugar", sugar)
+}
+
 func TestDownloader_DownloadFile_Success(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -28,7 +45,7 @@ func TestDownloader_DownloadFile_Success(t *testing.T) {
 	downloader := New(mockClient)
 	bar := pb.New64(100)
 
-	err := downloader.DownloadFile("https://www.example.com", "testfile.txt", bar)
+	err := downloader.DownloadFile("https://www.example.com", "testfile.txt", bar, ctx)
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
@@ -44,6 +61,8 @@ func TestDownloader_DownloadFile_Success(t *testing.T) {
 }
 
 func TestDownloadFile_FileAlreadyExists(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -72,7 +91,7 @@ func TestDownloadFile_FileAlreadyExists(t *testing.T) {
 	// Create a downloader instance with the mock HTTP client
 
 	// Call DownloadFile
-	err = downloader.DownloadFile("https://example.com/file.txt", destPath, bar)
+	err = downloader.DownloadFile("https://example.com/file.txt", destPath, bar, ctx)
 	if err != nil {
 		t.Fatalf("Error in DownloadFile: %v", err)
 	}
@@ -85,6 +104,8 @@ func TestDownloadFile_FileAlreadyExists(t *testing.T) {
 }
 
 func TestDownloader_DownloadFile_HttpError(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -97,13 +118,15 @@ func TestDownloader_DownloadFile_HttpError(t *testing.T) {
 
 	downloader := New(mockClient)
 	bar := pb.New64(100)
-	err := downloader.DownloadFile("https://www.example.com/notfound", "testfile.txt", bar)
+	err := downloader.DownloadFile("https://www.example.com/notfound", "testfile.txt", bar, ctx)
 	if err == nil || err.Error() != "failed to download file: 404 Not Found" {
 		t.Fatalf("Expected error 'failed to download file: 404 Not Found', got %v", err)
 	}
 }
 
 func TestDownloader_DownloadFile_ClientError(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -112,13 +135,15 @@ func TestDownloader_DownloadFile_ClientError(t *testing.T) {
 
 	downloader := New(mockClient)
 	bar := pb.New64(100)
-	err := downloader.DownloadFile("https://www.example.com", "testfile.txt", bar)
+	err := downloader.DownloadFile("https://www.example.com", "testfile.txt", bar, ctx)
 	if err == nil || err.Error() != "client error" {
 		t.Fatalf("Expected error 'client error', got %v", err)
 	}
 }
 
 func TestDownloadFiles(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -153,7 +178,7 @@ func TestDownloadFiles(t *testing.T) {
 	defer os.RemoveAll(tempDir) // Cleanup after test
 
 	// Call DownloadFiles
-	bars := dl.DownloadFiles(provider, tempDir, 1)
+	bars := dl.DownloadFiles(provider, tempDir, 1, ctx)
 
 	// Assertion 1: Check if the file was saved
 	destPath := filepath.Join(tempDir, "file.txt")
@@ -179,6 +204,8 @@ func TestDownloadFiles(t *testing.T) {
 }
 
 func TestDownloadFiles_HeadError(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -201,7 +228,7 @@ func TestDownloadFiles_HeadError(t *testing.T) {
 	defer os.RemoveAll(tempDir) // Cleanup after test
 
 	// Call DownloadFiles
-	bars := dl.DownloadFiles(provider, tempDir, 1)
+	bars := dl.DownloadFiles(provider, tempDir, 1, ctx)
 
 	// Assertion: Check if the file was not saved
 	destPath := filepath.Join(tempDir, "file.txt")
@@ -218,6 +245,8 @@ func TestDownloadFiles_HeadError(t *testing.T) {
 }
 
 func TestDownloadFile_ErrorCreatingFile(t *testing.T) {
+	setupOnce.Do(setup)
+
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
@@ -237,7 +266,7 @@ func TestDownloadFile_ErrorCreatingFile(t *testing.T) {
 	invalidPath := "/invalid_path/file.txt"
 
 	// Call DownloadFile
-	err := dl.DownloadFile("https://example.com/file.txt", invalidPath, nil)
+	err := dl.DownloadFile("https://example.com/file.txt", invalidPath, nil, ctx)
 
 	// Assertion: Check if there's an error when trying to create the file
 	if err == nil || !strings.Contains(err.Error(), "open /invalid_path/file.txt: no such file or directory") {

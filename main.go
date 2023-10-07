@@ -3,6 +3,7 @@ package main
 import (
 	"GoDownload/downloader"
 	"GoDownload/helpers"
+	"context"
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
@@ -32,6 +33,7 @@ func main() {
 	threads := flag.Int("threads", runtime.NumCPU(), "Number of threads for downloading")
 	dir := flag.String("dir", "./", "Download directory")
 	segments := flag.Int("segments", 1, "Number of segments for downloading (max 6). Cannot be used with -threads.")
+	ctx := context.WithValue(context.Background(), "sugar", sugar)
 
 	// Define a custom flag for multiple URLs
 	var urls multiFlag
@@ -62,13 +64,13 @@ func main() {
 	}
 
 	factory := &downloader.RealDownloaderFactory{}
-	dlErr := RunDownloader(*helpFlag, *threads, *dir, urls, factory)
+	dlErr := RunDownloader(*helpFlag, *threads, *dir, urls, factory, ctx)
 	if dlErr != nil {
 		sugar.Errorw("Problem running downloader", dlErr)
 	}
 }
 
-func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factory downloader.DownloaderFactory) error {
+func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factory downloader.DownloaderFactory, ctx context.Context) error {
 	// Display help information if --help is provided
 	if helpFlag {
 		flag.PrintDefaults()
@@ -108,7 +110,7 @@ func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factor
 	}
 
 	provider := &downloader.StaticURLProvider{URLs: urls}
-	dl.DownloadFiles(provider, dir, threads)
+	dl.DownloadFiles(provider, dir, threads, ctx)
 	return nil
 }
 

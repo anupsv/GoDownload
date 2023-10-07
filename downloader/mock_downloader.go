@@ -5,6 +5,7 @@
 package downloader
 
 import (
+	context "context"
 	reflect "reflect"
 
 	v3 "github.com/cheggaaa/pb/v3"
@@ -35,31 +36,31 @@ func (m *MockDownloaderInterface) EXPECT() *MockDownloaderInterfaceMockRecorder 
 }
 
 // DownloadFile mocks base method.
-func (m *MockDownloaderInterface) DownloadFile(url, destPath string, bar *v3.ProgressBar) error {
+func (m *MockDownloaderInterface) DownloadFile(url, destPath string, bar *v3.ProgressBar, ctx context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadFile", url, destPath, bar)
+	ret := m.ctrl.Call(m, "DownloadFile", url, destPath, bar, ctx)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // DownloadFile indicates an expected call of DownloadFile.
-func (mr *MockDownloaderInterfaceMockRecorder) DownloadFile(url, destPath, bar interface{}) *gomock.Call {
+func (mr *MockDownloaderInterfaceMockRecorder) DownloadFile(url, destPath, bar, ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadFile", reflect.TypeOf((*MockDownloaderInterface)(nil).DownloadFile), url, destPath, bar)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadFile", reflect.TypeOf((*MockDownloaderInterface)(nil).DownloadFile), url, destPath, bar, ctx)
 }
 
 // DownloadFiles mocks base method.
-func (m *MockDownloaderInterface) DownloadFiles(provider URLProvider, dir string, threads int) []*v3.ProgressBar {
+func (m *MockDownloaderInterface) DownloadFiles(provider URLProvider, dir string, threads int, ctx context.Context) []*v3.ProgressBar {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DownloadFiles", provider, dir, threads)
+	ret := m.ctrl.Call(m, "DownloadFiles", provider, dir, threads, ctx)
 	ret0, _ := ret[0].([]*v3.ProgressBar)
 	return ret0
 }
 
 // DownloadFiles indicates an expected call of DownloadFiles.
-func (mr *MockDownloaderInterfaceMockRecorder) DownloadFiles(provider, dir, threads interface{}) *gomock.Call {
+func (mr *MockDownloaderInterfaceMockRecorder) DownloadFiles(provider, dir, threads, ctx interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadFiles", reflect.TypeOf((*MockDownloaderInterface)(nil).DownloadFiles), provider, dir, threads)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DownloadFiles", reflect.TypeOf((*MockDownloaderInterface)(nil).DownloadFiles), provider, dir, threads, ctx)
 }
 
 // MockDownloaderFactory is a mock of DownloaderFactory interface.

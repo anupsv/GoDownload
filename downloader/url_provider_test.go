@@ -12,10 +12,8 @@ func TestStaticURLProvider_GetURLs(t *testing.T) {
 		},
 	}
 
-	urls := provider.GetURLs()
-	if len(urls) != 1 || urls[0] != "https://www.google.com" {
-		t.Fatalf("Expected valid URLs only, got %v", urls)
+	_, err := provider.GetURLs()
+	if err == nil {
+		t.Fatalf("Expected error, got none")
 	}
 }
-
-// TODO: Add tests for FileURLProvider once its implementation is provided.

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/cheggaaa/pb/v3"
+	"go.uber.org/zap"
 	"io"
 	"net/http"
 	"os"
@@ -16,8 +17,8 @@ import (
 
 // DownloaderInterface is an interface for the Downloader.
 type DownloaderInterface interface {
-	DownloadFile(url string, destPath string, bar *pb.ProgressBar) error
-	DownloadFiles(provider URLProvider, dir string, threads int) []*pb.ProgressBar
+	DownloadFile(url string, destPath string, bar *pb.ProgressBar, ctx context.Context) error
+	DownloadFiles(provider URLProvider, dir string, threads int, ctx context.Context) []*pb.ProgressBar
 }
 
 // Ensure Downloader implements DownloaderInterface
@@ -44,11 +45,16 @@ func (rdf *RealDownloaderFactory) NewDownloader(client HttpClient) DownloaderInt
 	return New(client)
 }
 
-func (d *Downloader) DownloadFile(url string, destPath string, bar *pb.ProgressBar) error {
+func (d *Downloader) DownloadFile(url string, destPath string, bar *pb.ProgressBar, ctx context.Context) error {
+
+	sugar, ok := ctx.Value("sugar").(*zap.SugaredLogger)
+	if !ok {
+		panic("error getting logger")
+	}
 
 	// Check if file already exists
 	if _, err := os.Stat(destPath); err == nil {
-		fmt.Printf("File %s already exists. Skipping download.\n", destPath)
+		sugar.Errorw("File %s already exists. Skipping download.", "destPath", destPath)
 		return nil
 	} else if !os.IsNotExist(err) {
 		return err
@@ -75,8 +81,16 @@ func (d *Downloader) DownloadFile(url string, destPath string, bar *pb.ProgressB
 	return err
 }
 
-func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int) []*pb.ProgressBar {
-	urls := provider.GetURLs()
+func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int, logCtx context.Context) []*pb.ProgressBar {
+	urls, getUrlErr := provider.GetURLs()
+	sugar, ok := logCtx.Value("sugar").(*zap.SugaredLogger)
+	if !ok {
+		panic("error getting logger")
+	}
+
+	if getUrlErr != nil {
+		sugar.Errorw("Failed to execute someFunction", "error", getUrlErr)
+	}
 
 	// Create a context that can be canceled
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,7 +107,7 @@ func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int
 	// Create a progress pool
 	pool, err := pb.StartPool()
 	if err != nil {
-		fmt.Println("Error starting progress pool:", err)
+		sugar.Errorw("Error starting progress pool:", "err", err)
 		return nil
 	}
 	defer pool.Stop()
@@ -105,7 +119,7 @@ func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int
 	for i, eachUrl := range urls {
 		resp, respErr := d.Client.Head(eachUrl)
 		if respErr != nil {
-			fmt.Printf("Error making HEAD request to %s: %v\n", eachUrl, err)
+			sugar.Errorw("Error making HEAD request", "url", eachUrl, "err", err)
 			continue
 		}
 		contentLength := resp.ContentLength
@@ -115,7 +129,7 @@ func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int
 		pool.Add(bars[i])
 
 		wg.Add(1)
-		go func(url string, bar *pb.ProgressBar) {
+		go func(url string, bar *pb.ProgressBar, logCtx context.Context) {
 			defer wg.Done()
 
 			select {
@@ -130,15 +144,16 @@ func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int
 
 			destPath := path.Join(dir, helpers.GetFileNameFromURL(url))
 			if _, pathErr := os.Stat(destPath); os.IsNotExist(pathErr) {
-				downloadErr := d.DownloadFile(url, destPath, bar)
+				downloadErr := d.DownloadFile(url, destPath, bar, logCtx)
 				if downloadErr != nil {
 					fmt.Printf("Error downloading %s: %v\n", url, downloadErr)
+					sugar.Errorw("Error downloading", "url", url, "err", downloadErr)
 				} else {
-					fmt.Printf("Downloaded %s to %s\n", url, destPath)
+					sugar.Infow("URL Downloaded", "url", url, "destPath", destPath)
 				}
 			}
 			bar.Finish()
-		}(eachUrl, bars[i])
+		}(eachUrl, bars[i], logCtx)
 	}
 
 	wg.Wait()
