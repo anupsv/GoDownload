@@ -16,9 +16,9 @@ type SegmentedDownloader struct {
 	Client HttpClient
 }
 
-func NewSegmentedDownloader(client HttpClient) *SegmentedDownloader {
-	return &SegmentedDownloader{Client: client}
-}
+//func NewSegmentedDownloader(client HttpClient) *SegmentedDownloader {
+//	return &SegmentedDownloader{Client: client}
+//}
 
 func (d *Downloader) DownloadFileInSegments(url string, destPath string, segments int) error {
 	// Get the file size
@@ -125,25 +125,38 @@ func (d *Downloader) DownloadFileInSegments(url string, destPath string, segment
 		return fmt.Errorf("one or more segment downloads failed. Please retry")
 	}
 
-	// Merge segments
-	destFile, errDest := os.Create(destPath)
-	if errDest != nil {
-		return errDest
+	// Merge the downloaded segments
+	err = mergeSegments(destPath, segments)
+	if err != nil {
+		return fmt.Errorf("error merging segments: %v", err)
 	}
-	defer destFile.Close()
 
-	for i := 0; i < segments; i++ {
-		tempFileName := fmt.Sprintf("%s.part%d", destPath, i)
-		tempFile, errTemp := os.Open(tempFileName)
-		if errTemp != nil {
-			return errTemp
+	return nil
+}
+
+// mergeSegments merges the downloaded segments into a single file.
+func mergeSegments(destPath string, segmentCount int) error {
+	mergedFile, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer mergedFile.Close()
+
+	for i := 1; i <= segmentCount; i++ {
+		segmentPath := fmt.Sprintf("%s.part%d", destPath, i)
+		segmentFile, err := os.Open(segmentPath)
+		if err != nil {
+			return err
 		}
-		_, errDestCopy := io.Copy(destFile, tempFile)
-		if errDestCopy != nil {
-			return errDestCopy
+
+		_, err = io.Copy(mergedFile, segmentFile)
+		segmentFile.Close()
+		if err != nil {
+			return err
 		}
-		tempFile.Close()
-		os.Remove(tempFileName)
+
+		// Remove the segment file after merging
+		os.Remove(segmentPath)
 	}
 
 	return nil
