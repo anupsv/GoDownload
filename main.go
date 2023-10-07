@@ -1,6 +1,7 @@
 package main
 
 import (
+	"GoDownload/clients"
 	"GoDownload/downloader"
 	"GoDownload/helpers"
 	"context"
@@ -103,13 +104,13 @@ func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factor
 	os.Remove(tempFile.Name()) // Cleanup the temporary file
 
 	// Create downloader instance using the factory
-	dl := factory.NewDownloader(&downloader.RealHttpClient{})
+	dl := factory.NewDownloader(&clients.RealHttpClient{})
 
 	if len(urls) == 0 {
 		return fmt.Errorf("please provide URLs to download using the -url flag")
 	}
 
-	provider := &downloader.StaticURLProvider{URLs: urls}
+	provider := &clients.StaticURLProvider{URLs: urls}
 	dl.DownloadFiles(provider, dir, threads, ctx)
 	return nil
 }

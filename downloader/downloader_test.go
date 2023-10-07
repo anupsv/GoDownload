@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"GoDownload/clients"
 	"bytes"
 	"context"
 	"errors"
@@ -36,7 +37,7 @@ func TestDownloader_DownloadFile_Success(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockHttpClient(ctrl)
+	mockClient := clients.NewMockHttpClient(ctrl)
 	mockClient.EXPECT().Get("https://www.example.com").Return(&http.Response{
 		StatusCode: http.StatusOK,
 		Body:       io.NopCloser(bytes.NewBufferString("Hello World")),
@@ -66,7 +67,7 @@ func TestDownloadFile_FileAlreadyExists(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockHttpClient(ctrl)
+	mockClient := clients.NewMockHttpClient(ctrl)
 	downloader := New(mockClient)
 
 	// Mock HTTP client to simulate a successful file download
@@ -109,7 +110,7 @@ func TestDownloader_DownloadFile_HttpError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockHttpClient(ctrl)
+	mockClient := clients.NewMockHttpClient(ctrl)
 	mockClient.EXPECT().Get("https://www.example.com/notfound").Return(&http.Response{
 		StatusCode: http.StatusNotFound,
 		Status:     "404 Not Found",
@@ -130,7 +131,7 @@ func TestDownloader_DownloadFile_ClientError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockClient := NewMockHttpClient(ctrl)
+	mockClient := clients.NewMockHttpClient(ctrl)
 	mockClient.EXPECT().Get("https://www.example.com").Return(nil, errors.New("client error")).Times(1)
 
 	downloader := New(mockClient)
@@ -147,7 +148,7 @@ func TestDownloadFiles(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := NewMockHttpClient(ctrl)
+	mockHttpClient := clients.NewMockHttpClient(ctrl)
 
 	// Mock the HEAD request to return a Content-Length of 12 (length of "file content")
 	mockHeadResponse := &http.Response{
@@ -168,7 +169,7 @@ func TestDownloadFiles(t *testing.T) {
 	dl := New(mockHttpClient)
 
 	// Create a StaticURLProvider with one URL
-	provider := &StaticURLProvider{URLs: []string{"https://example.com/file.txt"}}
+	provider := &clients.StaticURLProvider{URLs: []string{"https://example.com/file.txt"}}
 
 	// Define a temporary directory for downloads
 	tempDir, err := ioutil.TempDir("", "testDownload")
@@ -209,7 +210,7 @@ func TestDownloadFiles_HeadError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := NewMockHttpClient(ctrl)
+	mockHttpClient := clients.NewMockHttpClient(ctrl)
 
 	// Mock the HEAD request to return an error
 	mockHttpClient.EXPECT().Head("https://example.com/file.txt").Return(nil, errors.New("HEAD request failed")).Times(1)
@@ -218,7 +219,7 @@ func TestDownloadFiles_HeadError(t *testing.T) {
 	dl := New(mockHttpClient)
 
 	// Create a StaticURLProvider with one URL
-	provider := &StaticURLProvider{URLs: []string{"https://example.com/file.txt"}}
+	provider := &clients.StaticURLProvider{URLs: []string{"https://example.com/file.txt"}}
 
 	// Define a temporary directory for downloads
 	tempDir, err := ioutil.TempDir("", "testDownload")
@@ -250,7 +251,7 @@ func TestDownloadFile_ErrorCreatingFile(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := NewMockHttpClient(ctrl)
+	mockHttpClient := clients.NewMockHttpClient(ctrl)
 
 	// Mock the GET request to return a successful response
 	mockResponse := &http.Response{

@@ -2,7 +2,7 @@
 // Source: downloader/http_client.go
 
 // Package downloader is a generated GoMock package.
-package downloader
+package clients
 
 import (
 	context "context"

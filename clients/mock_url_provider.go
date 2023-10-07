@@ -2,7 +2,7 @@
 // Source: GoDownload/downloader/url_provider.go
 
 // Package downloader is a generated GoMock package.
-package downloader
+package clients
 
 import (
 	reflect "reflect"

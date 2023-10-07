@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"GoDownload/clients"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -16,7 +17,7 @@ func TestSuccessfulSegmentDownloads(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := NewMockHttpClient(ctrl)
+	mockHttpClient := clients.NewMockHttpClient(ctrl)
 	downloader := &Downloader{Client: mockHttpClient}
 
 	// Mock the HEAD request to get file size
@@ -52,7 +53,7 @@ func TestFailedSegmentDownload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := NewMockHttpClient(ctrl)
+	mockHttpClient := clients.NewMockHttpClient(ctrl)
 	downloader := &Downloader{Client: mockHttpClient}
 
 	// Mock the HEAD request to get file size
@@ -93,7 +94,7 @@ func TestHEADRequestFailure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := NewMockHttpClient(ctrl)
+	mockHttpClient := clients.NewMockHttpClient(ctrl)
 	downloader := &Downloader{Client: mockHttpClient}
 
 	// Mock the HEAD request to get file size

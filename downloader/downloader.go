@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"GoDownload/clients"
 	"GoDownload/helpers"
 	"context"
 	"errors"
@@ -18,7 +19,7 @@ import (
 // DownloaderInterface is an interface for the Downloader.
 type DownloaderInterface interface {
 	DownloadFile(url string, destPath string, bar *pb.ProgressBar, ctx context.Context) error
-	DownloadFiles(provider URLProvider, dir string, threads int, ctx context.Context) []*pb.ProgressBar
+	DownloadFiles(provider clients.URLProvider, dir string, threads int, ctx context.Context) []*pb.ProgressBar
 }
 
 // Ensure Downloader implements DownloaderInterface
@@ -26,22 +27,22 @@ var _ DownloaderInterface = &Downloader{}
 
 // Downloader is responsible for downloading files.
 type Downloader struct {
-	Client HttpClient
+	Client clients.HttpClient
 }
 
-func New(client HttpClient) *Downloader {
+func New(client clients.HttpClient) *Downloader {
 	return &Downloader{Client: client}
 }
 
 // DownloaderFactory is an interface for creating new Downloader instances.
 type DownloaderFactory interface {
-	NewDownloader(client HttpClient) DownloaderInterface
+	NewDownloader(client clients.HttpClient) DownloaderInterface
 }
 
 // RealDownloaderFactory is the real implementation of DownloaderFactory.
 type RealDownloaderFactory struct{}
 
-func (rdf *RealDownloaderFactory) NewDownloader(client HttpClient) DownloaderInterface {
+func (rdf *RealDownloaderFactory) NewDownloader(client clients.HttpClient) DownloaderInterface {
 	return New(client)
 }
 
@@ -81,7 +82,7 @@ func (d *Downloader) DownloadFile(url string, destPath string, bar *pb.ProgressB
 	return err
 }
 
-func (d *Downloader) DownloadFiles(provider URLProvider, dir string, threads int, logCtx context.Context) []*pb.ProgressBar {
+func (d *Downloader) DownloadFiles(provider clients.URLProvider, dir string, threads int, logCtx context.Context) []*pb.ProgressBar {
 	urls, getUrlErr := provider.GetURLs()
 	sugar, ok := logCtx.Value("sugar").(*zap.SugaredLogger)
 	if !ok {

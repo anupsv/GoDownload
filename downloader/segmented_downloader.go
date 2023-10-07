@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"GoDownload/clients"
 	"context"
 	"fmt"
 	"github.com/cheggaaa/pb/v3"
@@ -13,7 +14,7 @@ import (
 )
 
 type SegmentedDownloader struct {
-	Client HttpClient
+	Client clients.HttpClient
 }
 
 //func NewSegmentedDownloader(client HttpClient) *SegmentedDownloader {

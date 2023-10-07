@@ -5,6 +5,7 @@
 package downloader
 
 import (
+	"GoDownload/clients"
 	context "context"
 	reflect "reflect"
 
@@ -50,7 +51,7 @@ func (mr *MockDownloaderInterfaceMockRecorder) DownloadFile(url, destPath, bar, 
 }
 
 // DownloadFiles mocks base method.
-func (m *MockDownloaderInterface) DownloadFiles(provider URLProvider, dir string, threads int, ctx context.Context) []*v3.ProgressBar {
+func (m *MockDownloaderInterface) DownloadFiles(provider clients.URLProvider, dir string, threads int, ctx context.Context) []*v3.ProgressBar {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DownloadFiles", provider, dir, threads, ctx)
 	ret0, _ := ret[0].([]*v3.ProgressBar)
@@ -87,7 +88,7 @@ func (m *MockDownloaderFactory) EXPECT() *MockDownloaderFactoryMockRecorder {
 }
 
 // NewDownloader mocks base method.
-func (m *MockDownloaderFactory) NewDownloader(client HttpClient) DownloaderInterface {
+func (m *MockDownloaderFactory) NewDownloader(client clients.HttpClient) DownloaderInterface {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewDownloader", client)
 	ret0, _ := ret[0].(DownloaderInterface)
