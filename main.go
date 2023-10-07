@@ -5,12 +5,28 @@ import (
 	"GoDownload/helpers"
 	"flag"
 	"fmt"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"os"
 	"runtime"
 )
 
+var logger *zap.Logger
+
 func main() {
+
+	// Initialize logger
+	logger, _ = zap.NewProduction()
+	defer func(logger *zap.Logger) {
+		err := logger.Sync()
+		if err != nil {
+			panic(err)
+		}
+	}(logger) // flushes buffer, if any
+
+	sugar := logger.Sugar()
+	sugar.Infow("Logger initialized", "mode", "production")
+
 	// Define flags
 	helpFlag := flag.Bool("help", false, "Display help information")
 	threads := flag.Int("threads", runtime.NumCPU(), "Number of threads for downloading")
@@ -26,29 +42,29 @@ func main() {
 
 	err := helpers.ValidateDirectory(*dir)
 	if err != nil {
-		fmt.Println("Error:", err)
+		sugar.Errorw("Failed ValidateDirectory call", "error", err)
 		return
 	}
 
 	// Validate segments and threads
 	if *segments > 0 {
 		if *threads != runtime.NumCPU() {
-			fmt.Println("Error: Cannot specify both segments and threads.")
+			sugar.Errorw("Error: Cannot specify both segments and threads.")
 			return
 		}
 		if *segments > 6 {
-			fmt.Println("Error: Maximum of 6 segments allowed.")
+			sugar.Errorw("Error: Maximum of 6 segments allowed.")
 			return
 		}
 	} else {
-		fmt.Println("segments was given a weird value.")
+		sugar.Errorw("segments was given a weird value.")
 		return
 	}
 
 	factory := &downloader.RealDownloaderFactory{}
 	dlErr := RunDownloader(*helpFlag, *threads, *dir, urls, factory)
 	if dlErr != nil {
-		fmt.Println(dlErr)
+		sugar.Errorw("Problem running downloader", dlErr)
 	}
 }
 
@@ -73,13 +89,13 @@ func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factor
 
 	// Check if directory exists
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return fmt.Errorf("Directory %s does not exist", dir)
+		return fmt.Errorf("directory %s does not exist", dir)
 	}
 
 	// Check for write permissions by attempting to create a temporary file
 	tempFile, err := ioutil.TempFile(dir, "write_check_")
 	if err != nil {
-		return fmt.Errorf("No write permissions to directory %s", dir)
+		return fmt.Errorf("no write permissions to directory %s", dir)
 	}
 	tempFile.Close()
 	os.Remove(tempFile.Name()) // Cleanup the temporary file
@@ -88,7 +104,7 @@ func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factor
 	dl := factory.NewDownloader(&downloader.RealHttpClient{})
 
 	if len(urls) == 0 {
-		return fmt.Errorf("Please provide URLs to download using the -url flag.")
+		return fmt.Errorf("please provide URLs to download using the -url flag")
 	}
 
 	provider := &downloader.StaticURLProvider{URLs: urls}
