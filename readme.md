@@ -1,4 +1,4 @@
-Certainly! Here's a README.md file for your downloader project:
+Certainly! Here's an updated `README.md` file that includes the new build options provided by the `Makefile`:
 
 ---
 
@@ -21,8 +21,43 @@ To install GoDownload, you need to have Go installed on your machine. Once you h
 ```bash
 git clone https://github.com/yourusername/GoDownload.git
 cd GoDownload
-go build
 ```
+
+## Building
+
+GoDownload provides a `Makefile` for easy building for various platforms:
+
+- **macOS ARM**:
+  ```bash
+  make build-macos-arm
+  ```
+
+- **macOS Intel**:
+  ```bash
+  make build-macos-intel
+  ```
+
+- **Linux**:
+  ```bash
+  make build-linux
+  ```
+
+- **Windows**:
+  ```bash
+  make build-windows
+  ```
+
+- **Build for All Platforms**:
+  ```bash
+  make all
+  ```
+
+- **Clean Build Artifacts**:
+  ```bash
+  make clean
+  ```
+
+The binaries will be generated in the `build/` directory.
 
 ## Usage
 
@@ -68,4 +103,4 @@ This project is licensed under the MIT License.
 
 ---
 
-You can further customize this README to include any additional information, badges, or graphics you'd like.
+This updated README now includes the build options and instructions on how to use the `Makefile` to build the project for various platforms.
