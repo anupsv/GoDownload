@@ -50,7 +50,7 @@ func TestRunDownloader_ValidURLs(t *testing.T) {
 	mockFactory := downloader.NewMockDownloaderFactory(ctrl)
 	mockFactory.EXPECT().NewDownloader(gomock.Any()).Return(mockDownloader).Times(1)
 
-	err := RunDownloader(false, 1, "./", []string{"https://example.com/file1.txt"}, mockFactory, ctx)
+	err := RunDownloader(false, 1, "./", []string{"https://example.com/file1.txt"}, mockFactory, 1, ctx)
 	if err != nil {
 		t.Fatalf("Expected no error with valid URL, got %v", err)
 	}
@@ -69,7 +69,7 @@ func TestRunDownloader_MultipleValidURLs(t *testing.T) {
 	mockFactory.EXPECT().NewDownloader(gomock.Any()).Return(mockDownloader).Times(1)
 
 	urls := []string{"https://example.com/file1.txt", "https://example.com/file2.txt"}
-	err := RunDownloader(false, 2, "./", urls, mockFactory, ctx)
+	err := RunDownloader(false, 2, "./", urls, mockFactory, 1, ctx)
 	if err != nil {
 		t.Fatalf("Expected no error with multiple valid URLs, got %v", err)
 	}
@@ -88,7 +88,7 @@ func TestRunDownloader_MoreThreadsThanURLs(t *testing.T) {
 	mockFactory.EXPECT().NewDownloader(gomock.Any()).Return(mockDownloader).Times(1)
 
 	urls := []string{"https://example.com/file1.txt"}
-	err := RunDownloader(false, 5, "./", urls, mockFactory, ctx)
+	err := RunDownloader(false, 5, "./", urls, mockFactory, 1, ctx)
 	if err != nil {
 		t.Fatalf("Expected no error with more threads than URLs, got %v", err)
 	}
@@ -103,7 +103,7 @@ func TestRunDownloader_InvalidDirectory(t *testing.T) {
 	mockFactory := downloader.NewMockDownloaderFactory(ctrl)
 
 	urls := []string{"https://example.com/file1.txt"}
-	err := RunDownloader(false, 1, "/invalid_directory/", urls, mockFactory, ctx)
+	err := RunDownloader(false, 1, "/invalid_directory/", urls, mockFactory, 1, ctx)
 	if err == nil {
 		t.Fatalf("Expected an error with an invalid directory, got nil")
 	}
@@ -131,7 +131,7 @@ func TestRunDownloader_NoWritePermissions(t *testing.T) {
 	mockFactory := downloader.NewMockDownloaderFactory(ctrl)
 
 	urls := []string{"https://example.com/file1.txt"}
-	err = RunDownloader(false, 1, tempDir, urls, mockFactory, ctx)
+	err = RunDownloader(false, 1, tempDir, urls, mockFactory, 1, ctx)
 	if err == nil {
 		t.Fatalf("Expected an error due to no write permissions, got nil")
 	}

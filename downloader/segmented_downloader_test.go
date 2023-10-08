@@ -4,10 +4,10 @@ import (
 	"GoDownload/clients"
 	"errors"
 	"fmt"
+	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -17,77 +17,78 @@ func TestSuccessfulSegmentDownloads(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := clients.NewMockHttpClient(ctrl)
-	downloader := &Downloader{Client: mockHttpClient}
+	mockClient := clients.NewMockHttpClient(ctrl)
+	mockFactory := NewMockSegmentManagerFactory(ctrl)
+	mockSegmentManager := NewMockSegmentManager(ctrl)
+
+	url := "http://example.com/file.zip"
+	destPath := "/tmp/file.zip"
+	segments := 3
 
 	// Mock the HEAD request to get file size
-	mockHttpClient.EXPECT().Head("http://example.com").Return(&http.Response{
+	mockResp := &http.Response{
 		StatusCode:    http.StatusOK,
-		ContentLength: 1000, // example content length
+		ContentLength: 900, // Let's assume each segment is 300 bytes
 		Body:          http.NoBody,
-	}, nil)
+	}
+	mockClient.EXPECT().Head(url).Return(mockResp, nil)
+
+	// Mock the factory to return our mock segment manager
+	mockFactory.EXPECT().NewSegmentManager(mockClient, url, destPath).Return(mockSegmentManager)
 
 	// Mock the segment downloads
-	for i := 0; i < 4; i++ { // assuming 4 segments for simplicity
-		req, _ := http.NewRequest("GET", "http://example.com", nil)
-		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", i*250, (i+1)*250-1))
-		mockHttpClient.EXPECT().Do(gomock.Any(), req).Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader("segment data")), // dummy segment data
-		}, nil)
+	for i := 0; i < segments; i++ {
+		start := int64(i * 300)
+		end := int64((i+1)*300 - 1)
+		mockSegmentManager.EXPECT().DownloadSegment(gomock.Any(), mockClient, url, start, end, gomock.Any()).Return(nil)
 	}
 
-	// Create dummy segment files
-	for i := 0; i < 4; i++ {
-		ioutil.WriteFile(fmt.Sprintf("/tmp/file.part%d", i+1), []byte("segment data"), 0644)
-		defer os.Remove(fmt.Sprintf("/tmp/file.part%d", i+1)) // schedule cleanup after test
-	}
+	// Mock the segment merge
+	mockSegmentManager.EXPECT().MergeSegments(destPath, segments).Return(nil)
 
-	err := downloader.DownloadFileInSegments("http://example.com", "/tmp/file", 4)
-	if err != nil {
-		t.Errorf("Expected no error, but got: %v", err)
-	}
+	downloader := NewSegmentedDownloader(mockClient, mockFactory, url, destPath)
+	err := downloader.DownloadFileInSegments(url, destPath, segments)
+
+	assert.NoError(t, err)
 }
 
 func TestFailedSegmentDownload(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
 
-	mockHttpClient := clients.NewMockHttpClient(ctrl)
-	downloader := &Downloader{Client: mockHttpClient}
+	mockClient := clients.NewMockHttpClient(ctrl)
+	mockFactory := NewMockSegmentManagerFactory(ctrl)
+	mockSegmentManager := NewMockSegmentManager(ctrl)
+
+	url := "http://example.com/file.zip"
+	destPath := "/tmp/file.zip"
+	segments := 3
 
 	// Mock the HEAD request to get file size
-	mockHttpClient.EXPECT().Head("http://example.com").Return(&http.Response{
+	mockResp := &http.Response{
 		StatusCode:    http.StatusOK,
-		ContentLength: 1000, // example content length
+		ContentLength: 900, // Let's assume each segment is 300 bytes
 		Body:          http.NoBody,
-	}, nil)
+	}
+	mockClient.EXPECT().Head(url).Return(mockResp, nil)
+
+	// Mock the factory to return our mock segment manager
+	mockFactory.EXPECT().NewSegmentManager(mockClient, url, destPath).Return(mockSegmentManager)
 
 	// Mock the segment downloads
-	for i := 0; i < 3; i++ { // first 3 segments are successful
-		req, _ := http.NewRequest("GET", "http://example.com", nil)
-		req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", i*250, (i+1)*250-1))
-		mockHttpClient.EXPECT().Do(gomock.Any(), req).Return(&http.Response{
-			StatusCode: http.StatusOK,
-			Body:       ioutil.NopCloser(strings.NewReader("segment data")), // dummy segment data
-		}, nil)
-	}
+	// Let's assume the first segment download fails
+	mockSegmentManager.EXPECT().DownloadSegment(gomock.Any(), mockClient, url, int64(0), int64(299), gomock.Any()).Return(fmt.Errorf("failed to download segment"))
+	mockSegmentManager.EXPECT().DownloadSegment(gomock.Any(), mockClient, url, int64(300), int64(599), gomock.Any()).Return(nil)
+	mockSegmentManager.EXPECT().DownloadSegment(gomock.Any(), mockClient, url, int64(600), int64(899), gomock.Any()).Return(nil)
 
-	// The fourth segment download fails
-	req, _ := http.NewRequest("GET", "http://example.com", nil)
-	req.Header.Set("Range", "bytes=750-999")
-	mockHttpClient.EXPECT().Do(gomock.Any(), req).Return(nil, errors.New("download error"))
+	// Since the first segment download fails, we don't expect the other segments to be downloaded or merged
+	// Thus, we don't mock expectations for them
 
-	// Create dummy segment files for the first 3 segments
-	for i := 0; i < 3; i++ {
-		ioutil.WriteFile(fmt.Sprintf("/tmp/file.part%d", i+1), []byte("segment data"), 0644)
-		defer os.Remove(fmt.Sprintf("/tmp/file.part%d", i+1)) // schedule cleanup after test
-	}
+	downloader := NewSegmentedDownloader(mockClient, mockFactory, url, destPath)
+	err := downloader.DownloadFileInSegments(url, destPath, segments)
 
-	err := downloader.DownloadFileInSegments("http://example.com", "/tmp/file", 4)
-	if err == nil {
-		t.Errorf("Expected an error due to failed segment download, but got none")
-	}
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "one or more segment downloads failed. Please retry")
 }
 
 func TestHEADRequestFailure(t *testing.T) {
@@ -95,7 +96,7 @@ func TestHEADRequestFailure(t *testing.T) {
 	defer ctrl.Finish()
 
 	mockHttpClient := clients.NewMockHttpClient(ctrl)
-	downloader := &Downloader{Client: mockHttpClient}
+	downloader := &SegmentedDownloader{Client: mockHttpClient}
 
 	// Mock the HEAD request to get file size
 	mockHttpClient.EXPECT().Head("http://example.com").Return(nil, errors.New("failed to get file size"))

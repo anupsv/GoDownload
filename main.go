@@ -33,7 +33,7 @@ func main() {
 	helpFlag := flag.Bool("help", false, "Display help information")
 	threads := flag.Int("threads", runtime.NumCPU(), "Number of threads for downloading")
 	dir := flag.String("dir", "./", "Download directory")
-	segments := flag.Int("segments", 1, "Number of segments for downloading (max 6). Cannot be used with -threads.")
+	segments := flag.Int("segments", 0, "Number of segments for downloading (max 6). Cannot be used with -threads.")
 	ctx := context.WithValue(context.Background(), "sugar", sugar)
 
 	// Define a custom flag for multiple URLs
@@ -59,19 +59,22 @@ func main() {
 			sugar.Errorw("Error: Maximum of 6 segments allowed.")
 			return
 		}
-	} else {
-		sugar.Errorw("segments was given a weird value.")
-		return
 	}
 
 	factory := &downloader.RealDownloaderFactory{}
-	dlErr := RunDownloader(*helpFlag, *threads, *dir, urls, factory, ctx)
+	dlErr := RunDownloader(*helpFlag, *threads, *dir, urls, factory, *segments, ctx)
 	if dlErr != nil {
 		sugar.Errorw("Problem running downloader", dlErr)
 	}
 }
 
-func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factory downloader.DownloaderFactory, ctx context.Context) error {
+func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factory downloader.DownloaderFactory, segments int, ctx context.Context) error {
+
+	sugar, ok := ctx.Value("sugar").(*zap.SugaredLogger)
+	if !ok {
+		panic("error getting logger")
+	}
+
 	// Display help information if --help is provided
 	if helpFlag {
 		flag.PrintDefaults()
@@ -111,7 +114,22 @@ func RunDownloader(helpFlag bool, threads int, dir string, urls []string, factor
 	}
 
 	provider := &clients.StaticURLProvider{URLs: urls}
-	dl.DownloadFiles(provider, dir, threads, ctx)
+
+	if segments > 1 {
+		// Use segmented download
+		segmentedDl := &downloader.SegmentedDownloader{
+			Client: &clients.RealHttpClient{},
+		}
+		for _, url := range urls {
+			segErr := segmentedDl.DownloadFileInSegments(url, dir, segments)
+			if segErr != nil {
+				sugar.Errorw("Error downloading this url using segments", "url", url, "error", segErr)
+			}
+		}
+	} else {
+		// Use regular download
+		dl.DownloadFiles(provider, dir, threads, ctx)
+	}
 	return nil
 }
 

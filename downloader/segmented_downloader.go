@@ -14,14 +14,96 @@ import (
 )
 
 type SegmentedDownloader struct {
-	Client clients.HttpClient
+	Client         clients.HttpClient
+	SegmentManager SegmentManager
 }
 
-//func NewSegmentedDownloader(client HttpClient) *SegmentedDownloader {
-//	return &SegmentedDownloader{Client: client}
-//}
+type SegmentManager interface {
+	DownloadSegment(ctx context.Context, client clients.HttpClient, url string, start, end int64, destPath string) error
+	MergeSegments(destPath string, segmentCount int) error
+}
 
-func (d *Downloader) DownloadFileInSegments(url string, destPath string, segments int) error {
+type SegmentManagerFactory interface {
+	NewSegmentManager(client clients.HttpClient, url string, destPath string) SegmentManager
+}
+
+type RealSegmentManagerFactory struct{}
+
+func (f *RealSegmentManagerFactory) NewSegmentManager(client clients.HttpClient, url string, destPath string) SegmentManager {
+	return &FileSegmentManager{}
+}
+
+func NewSegmentedDownloader(client clients.HttpClient, factory SegmentManagerFactory, url string, destPath string) *SegmentedDownloader {
+	manager := factory.NewSegmentManager(client, url, destPath)
+	return &SegmentedDownloader{
+		Client:         client,
+		SegmentManager: manager,
+	}
+}
+
+type FileSegmentManager struct{}
+
+func (m *FileSegmentManager) DownloadSegment(ctx context.Context, client clients.HttpClient, url string, start, end int64, destPath string) error {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
+	resp, err := client.Do(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	// Check if the request was successful
+	if resp.StatusCode != http.StatusPartialContent {
+		return fmt.Errorf("expected partial content status but got %s", resp.Status)
+	}
+
+	// Create a segment file
+	partFile, err := os.Create(fmt.Sprintf("%s.part%d", destPath, start))
+	if err != nil {
+		return err
+	}
+	defer partFile.Close()
+
+	// Write data directly to the segment file
+	_, err = io.Copy(partFile, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *FileSegmentManager) MergeSegments(destPath string, segmentCount int) error {
+	mergedFile, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer mergedFile.Close()
+
+	for i := 0; i < segmentCount; i++ {
+		segmentPath := fmt.Sprintf("%s.part%d", destPath, i)
+		segmentFile, err := os.Open(segmentPath)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.Copy(mergedFile, segmentFile)
+		segmentFile.Close()
+		if err != nil {
+			return err
+		}
+
+		// Remove the segment file after merging
+		os.Remove(segmentPath)
+	}
+
+	return nil
+}
+
+func (d *SegmentedDownloader) DownloadFileInSegments(url string, destPath string, segments int) error {
 	// Get the file size
 	resp, err := d.Client.Head(url)
 	if err != nil {
@@ -65,49 +147,9 @@ func (d *Downloader) DownloadFileInSegments(url string, destPath string, segment
 
 		go func(start, end int64, ctx context.Context) {
 			defer wg.Done()
-
-			req, _ := http.NewRequest("GET", url, nil)
-			req.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, end))
-			resp, err := d.Client.Do(ctx, req)
-			if err != nil {
-				successCh <- false
-				return
-			}
-			defer resp.Body.Close()
-
-			// Create a segment file
-			partFile, err := os.Create(fmt.Sprintf("%s.part%d", destPath, start))
-			if err != nil {
-				successCh <- false
-				return
-			}
-			defer partFile.Close()
-
-			// Write data directly to the segment file with progress update
-			buf := make([]byte, 32*1024) // 32KB buffer
-			for {
-				nr, er := resp.Body.Read(buf)
-				if nr > 0 {
-					nw, ew := partFile.Write(buf[:nr])
-					if ew != nil {
-						successCh <- false
-						return
-					}
-					if nw != nr {
-						successCh <- false
-						return
-					}
-					bar.Add(nw)
-				}
-				if er == io.EOF {
-					break
-				}
-				if er != nil {
-					successCh <- false
-					return
-				}
-			}
-			successCh <- true
+			nErr := d.SegmentManager.DownloadSegment(ctx, d.Client, url, start, end, destPath)
+			//successCh <- (true)
+			successCh <- (nErr == nil)
 		}(start, end, ctx)
 	}
 
@@ -127,12 +169,7 @@ func (d *Downloader) DownloadFileInSegments(url string, destPath string, segment
 	}
 
 	// Merge the downloaded segments
-	err = mergeSegments(destPath, segments)
-	if err != nil {
-		return fmt.Errorf("error merging segments: %v", err)
-	}
-
-	return nil
+	return d.SegmentManager.MergeSegments(destPath, segments)
 }
 
 // mergeSegments merges the downloaded segments into a single file.
